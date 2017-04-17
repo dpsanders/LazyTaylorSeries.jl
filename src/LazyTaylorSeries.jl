@@ -62,12 +62,8 @@ constant(c::Real) = constant(Float64(c))
 @inbounds *(f::Taylor, g::Taylor) = Taylor( (t, k) -> sum(f[i] * g[k-i] for i in 0:k), true)
 
 
-# g is a closure inside the function exp
-# so will capture the local variable exp_g
-# as a reference to the object itself
-# Hence exp_g[k-j] will call getindex on that object, and hence
-# the above memoized function
 
+# self is a reference to the object exp(g)
 function exp(g::Taylor)
     function f(self, k)
         k == 0 && return exp(g[0])
