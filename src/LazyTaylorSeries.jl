@@ -1,6 +1,6 @@
 module LazyTaylorSeries
 
-export Taylor, tt
+export Taylor, tt, constant
 
 import Base:
     +, -, *,
