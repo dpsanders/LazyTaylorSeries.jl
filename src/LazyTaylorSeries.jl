@@ -5,6 +5,7 @@ export Taylor, tt, constant
 import Base:
     +, -, *,
     exp,
+    resize!,
     getindex
 
 immutable Taylor{T,F,memoize}
@@ -27,26 +28,31 @@ Taylor(f::Function) = Taylor(f, true)  # memoize by default
 # this version of getindex is for non-memoized
 getindex{T,F}(t::Taylor{T,F,Val{false}}, i::Int) = (t.f)(i)
 
+"""Resize a Taylor object to fit coefficients up to order n"""
+function resize!(t::Taylor, n::Int)
+    new_size = n+1
+    current_length = length(t.coeffs)
+
+    new_size <= current_length && return
+
+    resize!(t.coeffs, new_size)
+    @inbounds t.coeffs[current_length+1:end] .= NaN
+end
+
 # Memoized; use NaN to indicate value not yet calculated
 function getindex{T,F}(t::Taylor{T,F,Val{true}}, i::Int)
     j = i + 1
     coeffs = t.coeffs
 
-    @inbounds if j <= length(coeffs)
-        if isnan(coeffs[j])
-            coeffs[j] = (t.f)(t, i)  # pass in the object as the first argument to the function for those functions that are recursive
-        end
+    resize!(t, i)
 
-        return coeffs[j]
+    if isnan(coeffs[j])
+        coeffs[j] = (t.f)(t, i)  # pass in the object as the first argument to the function for those functions that are recursive
 
-    else  # too short
-        current_length = length(coeffs)
-        resize!(coeffs, j)
-        @inbounds coeffs[current_length+1:end] .= NaN
-        @inbounds coeffs[end] = (t.f)(t, i)
-
-        @inbounds return coeffs[end]
+        @show object_id(t), i
     end
+
+    return coeffs[j]
 end
 
 # tt is the independent variable; non-memoized (nothing stored in memory)
@@ -71,6 +77,10 @@ function exp(g::Taylor)
     function f(self, k)
         k == 0 && return exp(g[0])
         # dummy = g[k]  # preallocate g
+
+        resize!(self, k)
+        resize!(g, k)
+
         return sum(i * g[i] * self[k-i] for i in 1:k) / k
     end
 
