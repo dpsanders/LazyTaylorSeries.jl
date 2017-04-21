@@ -29,7 +29,9 @@ Taylor(f::Function) = Taylor(f, true)  # memoize by default
 getindex{T,F}(t::Taylor{T,F,Val{false}}, i::Int) = (t.f)(i)
 
 """Resize a Taylor object to fit coefficients up to order n"""
-function resize!(t::Taylor, n::Int)
+resize!{T,F}(t::Taylor{T,F,Val{false}}, n::Int) = return
+
+function resize!{T,F}(t::Taylor{T,F,Val{true}}, n::Int)
     new_size = n+1
     current_length = length(t.coeffs)
 
