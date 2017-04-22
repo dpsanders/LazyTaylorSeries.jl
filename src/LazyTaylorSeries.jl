@@ -51,7 +51,7 @@ function getindex{T,F}(t::Taylor{T,F,Val{true}}, i::Int)
     if isnan(coeffs[j])
         coeffs[j] = (t.f)(t, i)  # pass in the object as the first argument to the function for those functions that are recursive
 
-        @show object_id(t), i
+        #@show object_id(t), i
     end
 
     return coeffs[j]
