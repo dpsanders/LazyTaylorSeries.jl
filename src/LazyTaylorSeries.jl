@@ -48,13 +48,16 @@ function getindex{T,F}(t::Taylor{T,F,Val{true}}, i::Int)
 
     @boundscheck resize!(t, i)
 
-    @inbounds if isnan(coeffs[j])
-        coeffs[j] = (t.f)(t, i)  # pass in the object as the first argument to the function for those functions that are recursive
+    c = coeffs[j]
 
+    @inbounds if isnan(c)
+        c = (t.f)(t, i)  # pass in the object as the first argument to the function for those functions that are recursive
+        coeffs[j] = c
         #@show object_id(t), i
+
     end
 
-    return @inbounds coeffs[j]
+    return c
 end
 
 # tt is the independent variable; non-memoized (nothing stored in memory)
