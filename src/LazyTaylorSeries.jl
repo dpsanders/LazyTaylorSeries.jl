@@ -46,15 +46,15 @@ function getindex{T,F}(t::Taylor{T,F,Val{true}}, i::Int)
     j = i + 1
     coeffs = t.coeffs
 
-    resize!(t, i)
+    @boundscheck resize!(t, i)
 
-    if isnan(coeffs[j])
+    @inbounds if isnan(coeffs[j])
         coeffs[j] = (t.f)(t, i)  # pass in the object as the first argument to the function for those functions that are recursive
 
         #@show object_id(t), i
     end
 
-    return coeffs[j]
+    return @inbounds coeffs[j]
 end
 
 # tt is the independent variable; non-memoized (nothing stored in memory)
@@ -83,7 +83,8 @@ function exp(g::Taylor)
         resize!(self, k)
         resize!(g, k)
 
-        return sum(i * g[i] * self[k-i] for i in 1:k) / k
+        @inbounds s = sum(i * g[i] * self[k-i] for i in 1:k) / k
+        return s
     end
 
     return Taylor(f)
