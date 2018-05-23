@@ -81,8 +81,8 @@ function *(f::Taylor{N,T}, g::Taylor{N,T}) where {N,T}
 
                 tuples = generate_tuples(index)
 
-                for t in tuples
-                    coeff += f[t] * g[index - t]
+                for i in tuples
+                    coeff += f[i] * g[index - i]
                 end
 
                 coeff
