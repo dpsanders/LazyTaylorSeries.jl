@@ -12,8 +12,8 @@ immutable Taylor{N,T,F}
 end
 
 
-function Taylor(N, T, f::F, order=-1) where {F}
-    t = Taylor{N, T, F}(f, CoeffDict{N,T}(), order)
+function Taylor(N, T, f::F, degree=-1) where {F}
+    t = Taylor{N, T, F}(f, CoeffDict{N,T}(), degree)
     dummy = t[SVector(ntuple(_->0, Val{N}))]  # compile getindex by calculating first coefficient
     return t
 end
@@ -263,8 +263,19 @@ end
 
 export x, y, z, o
 
-T = Float64
-x = Taylor(3, T, (t,i)->(i==SVector(1, 0, 0) ? 1 : 0), 1)
-y = Taylor(3, T, (t,i)->(i==SVector(0, 1, 0) ? 1 : 0), 1)
-z = Taylor(3, T, (t,i)->(i==SVector(0, 0, 1) ? 1 : 0), 1)
-o = Taylor(3, T, (t,i)->(i==SVector(0, 0, 0) ? 1 : 0), 0)  # constant one
+function variable(N, T, i)
+    vec = SVector(ntuple(j->(j==i ? 1 : 0), Val{N}))
+    return Taylor(N, T, (t,index)->(index==vec ? 1 : 0), 1)
+end
+
+function constant(N, T)
+    return Taylor(N, T, (t,i)->(i==zero(SVector{N,T}) ? 1 : 0), 0)
+end
+
+function variables(N, T)
+    return (constant(N,T), [variable(N,T,i) for i in 1:N]...)
+end
+
+
+export o, x, y, z
+o, x, y, z = variables(3, Float64)
