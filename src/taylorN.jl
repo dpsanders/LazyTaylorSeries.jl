@@ -13,7 +13,7 @@ end
 
 
 function Taylor(N, T, f::F, order=-1) where {F}
-    t = Taylor{N, Float64, F}(f, CoeffDict{N,T}(), order)
+    t = Taylor{N, T, F}(f, CoeffDict{N,T}(), order)
     dummy = t[SVector(ntuple(_->0, Val{N}))]  # compile getindex by calculating first coefficient
     return t
 end
@@ -263,7 +263,8 @@ end
 
 export x, y, z, o
 
-x = Taylor(3, Float64, (t,i)->(i==SVector(1, 0, 0) ? 1 : 0), 1)
-y = Taylor(3, Float64, (t,i)->(i==SVector(0, 1, 0) ? 1 : 0), 1)
-z = Taylor(3, Float64, (t,i)->(i==SVector(0, 0, 1) ? 1 : 0), 1)
-o = Taylor(3, Float64, (t,i)->(i==SVector(0, 0, 0) ? 1 : 0), 0)  # constant one
+T = Float64
+x = Taylor(3, T, (t,i)->(i==SVector(1, 0, 0) ? 1 : 0), 1)
+y = Taylor(3, T, (t,i)->(i==SVector(0, 1, 0) ? 1 : 0), 1)
+z = Taylor(3, T, (t,i)->(i==SVector(0, 0, 1) ? 1 : 0), 1)
+o = Taylor(3, T, (t,i)->(i==SVector(0, 0, 0) ? 1 : 0), 0)  # constant one
