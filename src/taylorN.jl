@@ -19,6 +19,7 @@ function Taylor(N, T, f::F, order=-1) where {F}
 end
 
 degree(x::SVector) = sum(x)
+degree(f::Taylor) = f.degree
 
 function getindex(t::Taylor{N,T,F}, index::SVector) where {N,T,F}
 
@@ -127,6 +128,37 @@ function generate_tuples(x::SVector{N,Int}) where N
     return tuples
 
 end
+
+"Generate tuples with a given maximum degree"
+function generate_tuples(N, deg)
+
+    t = zero(SVector{N,Int})
+
+    tuples = [t]
+
+    which = N
+
+    @inbounds while degree(t) <= deg && which > 0
+
+        if degree(t) == deg
+            t = setindex(t, 0, which)
+            which -= 1
+
+            if which == 0
+                break
+            end
+
+        else
+            which = N
+        end
+
+        t = setindex(t, t[which]+1, which)
+        push!(tuples, t)
+    end
+
+    return tuples
+
+end
 #
 # struct TupleGenerator{N,T}
 #     x::SVector{N,T}
@@ -173,9 +205,63 @@ end
 #
 # end
 
+const variable_names = ["x", "y", "z"]
 
 
 
+function evaluate(f::Taylor{N,T}) where {N,T}
+    tuples = generate_tuples(N, degree(f))
+
+    for t in tuples
+        f[t]
+    end
+end
+
+
+function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
+
+    if degree(f) == 0
+        print(io, f[zero(SVector{N,Int})])
+        return
+    end
+
+    # todo: order by degree
+    for t in sort(collect(keys(f.coeffs)), lt=lexless)
+        value = f[t]
+
+        if value == 0
+            continue
+        end
+
+        if (value == 1 && iszero(t))
+            print(io, value)
+        end
+
+        if value != 1
+            print(io, value)
+        end
+
+
+
+        for i in 1:N
+
+            if t[i] == 1
+                print(io, variable_names[i])
+            elseif t[i] > 1
+                print(io, variable_names[i], "^", t[i])
+            end
+        end
+
+        print("+")
+
+
+    end
+end
+
+
+
+
+export x, y, z, o
 
 x = Taylor(3, Float64, (t,i)->(i==SVector(1, 0, 0) ? 1 : 0), 1)
 y = Taylor(3, Float64, (t,i)->(i==SVector(0, 1, 0) ? 1 : 0), 1)
