@@ -3,7 +3,8 @@ module LazyTaylorSeries
 using StaticArrays
 
 
-export Taylor1, Taylor, tt, constant
+export Taylor1, Taylor, tt
+export variable, variables, constant, degree, evaluate
 
 
 
