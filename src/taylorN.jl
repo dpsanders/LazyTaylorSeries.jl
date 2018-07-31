@@ -205,11 +205,11 @@ end
 #
 # end
 
-const variable_names = ["x", "y", "z"]
+const variable_names = ["x", "y", "z", "w"]
 
 
 
-function evaluate(f::Taylor{N,T}) where {N,T}
+function evaluate!(f::Taylor{N,T}) where {N,T}
     tuples = generate_tuples(N, degree(f))
 
     for t in tuples
@@ -273,7 +273,7 @@ function constant(N, T)
 end
 
 function variables(N, T)
-    return (constant(N,T), [variable(N,T,i) for i in 1:N]...)
+    return (constant(N,T), [variable(N, T, i) for i in 1:N]...)
 end
 
 
