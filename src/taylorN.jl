@@ -273,7 +273,13 @@ function constant(N, T)
 end
 
 function variables(N, T)
-    return (constant(N,T), [variable(N, T, i) for i in 1:N]...)
+    vars = [variable(N, T, i) for i in 1:N]
+
+    for var in vars
+        evaluate!(var)
+    end
+
+    return (constant(N,T), vars...)
 end
 
 
