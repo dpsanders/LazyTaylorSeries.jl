@@ -252,9 +252,7 @@ function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
             end
         end
 
-        print("+")
-
-
+        print(io, " + ")
     end
 end
 
@@ -279,7 +277,7 @@ function variables(N, T)
         evaluate!(var)
     end
 
-    return (constant(N,T), vars...)
+    return (constant(N,T), vars ...)
 end
 
 
