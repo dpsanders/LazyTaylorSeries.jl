@@ -5,7 +5,7 @@ const CoeffDict{N,T} = Dict{ SVector{N,Int}, T }
 """Lazy Taylor series with N variables and coefficients of type T
 `degree` is the max degree of monomials allowed.
 If `degree == -1` then the Tayor series is potentially infinite."""
-immutable Taylor{N,T,F}
+struct Taylor{N,T,F}
     f::F
     coeffs::CoeffDict{N,T}
     degree::Int   # maximum order of monomial
@@ -14,7 +14,7 @@ end
 
 function Taylor(N, T, f::F, degree=-1) where {F}
     t = Taylor{N, T, F}(f, CoeffDict{N,T}(), degree)
-    dummy = t[SVector(ntuple(_->0, Val{N}))]  # compile getindex by calculating first coefficient
+    dummy = t[SVector(ntuple(_->0, Val(N)))]  # compile getindex by calculating first coefficient
     return t
 end
 
@@ -262,7 +262,7 @@ end
 export x, y, z, o
 
 function variable(N, T, i)
-    vec = SVector(ntuple(j->(j==i ? 1 : 0), Val{N}))
+    vec = SVector(ntuple(j->(j==i ? 1 : 0), N))
     return Taylor(N, T, (t,index)->(index==vec ? 1 : 0), 1)
 end
 

@@ -1,5 +1,5 @@
 
-immutable Taylor1{T,F,memoize}
+struct Taylor1{T,F,memoize}
     f::F
     coeffs::Vector{T}
 end
@@ -23,10 +23,10 @@ end
 Taylor1(f::Function) = Taylor1(f, true)  # memoize by default
 
 # this version of getindex is for non-memoized
-getindex{T,F}(t::Taylor1{T,F,Val{false}}, i::Int) = (t.f)(i)
+getindex(t::Taylor1{T,F,Val{false}}, i::Int) where {T, F} = (t.f)(i)
 
 # Memoized; use NaN to indicate value not yet calculated
-function getindex{T,F}(t::Taylor1{T,F,Val{true}}, i::Int)
+function getindex(t::Taylor1{T,F,Val{true}}, i::Int) where {T, F}
     j = i + 1
     coeffs = t.coeffs
 
