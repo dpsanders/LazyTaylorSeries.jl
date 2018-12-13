@@ -21,6 +21,9 @@ end
 degree(x::SVector) = sum(x)
 degree(f::Taylor) = f.degree
 
+import Base: ^
+^(t::Taylor{N,T,F}, n::Integer) where {N,T,F} = Base.power_by_squaring(t, n)
+
 function getindex(t::Taylor{N,T,F}, index::SVector) where {N,T,F}
 
     if degree(index) > t.degree
@@ -226,7 +229,7 @@ function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
     end
 
     # todo: order by degree
-    for t in sort(collect(keys(f.coeffs)), lt=lexless)
+    for t in sort(collect(keys(f.coeffs)), lt=isless)
         value = f[t]
 
         if value == 0

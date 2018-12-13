@@ -1,8 +1,15 @@
 
+
+
 struct Taylor1{T,F,memoize}
     f::F
     coeffs::Vector{T}
 end
+
+Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
+
+import Base: ^
+^(t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
 
 # the function f must take *two* variables if it is memoized;
 # the first is used as an explicit reference to the current object when necessary
