@@ -3,7 +3,7 @@ module LazyTaylorSeries
 using StaticArrays
 
 
-export Taylor1, Taylor, tt
+export LazyTaylor1, Taylor, tt
 export variable, variables, constant, degree, evaluate!
 
 
@@ -14,7 +14,7 @@ import Base:
     getindex
 
 
-include("taylor1.jl")
+include("LazyTaylor1.jl")
 include("taylorN.jl")
 
 
