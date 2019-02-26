@@ -4,27 +4,29 @@ const CoeffDict{N,T} = Dict{ SVector{N,Int}, T }
 
 """Lazy Taylor series with N variables and coefficients of type T
 `degree` is the max degree of monomials allowed.
-If `degree == -1` then the Tayor series is potentially infinite."""
-struct Taylor{N,T,F}
-    f::F
+If `degree == -1` then the Taylor series is potentially infinite."""
+struct Taylor{N,T}
+    f::Function
     coeffs::CoeffDict{N,T}
     degree::Int   # maximum order of monomial
 end
 
 
-function Taylor(N, T, f::F, degree=-1) where {F}
-    t = Taylor{N, T, F}(f, CoeffDict{N,T}(), degree)
+
+function Taylor(N, T, f, degree=-1)
+    t = Taylor{N, T}(f, CoeffDict{N,T}(), degree)
     dummy = t[SVector(ntuple(_->0, Val(N)))]  # compile getindex by calculating first coefficient
     return t
 end
+
 
 degree(x::SVector) = sum(x)
 degree(f::Taylor) = f.degree
 
 import Base: ^
-^(t::Taylor{N,T,F}, n::Integer) where {N,T,F} = Base.power_by_squaring(t, n)
+^(t::Taylor{N,T}, n::Integer) where {N,T} = Base.power_by_squaring(t, n)
 
-function getindex(t::Taylor{N,T,F}, index::SVector) where {N,T,F}
+function getindex(t::Taylor{N,T}, index::SVector) where {N,T}
 
     if degree(index) > t.degree
         return zero(T)
@@ -36,13 +38,20 @@ function getindex(t::Taylor{N,T,F}, index::SVector) where {N,T,F}
         return coeffs[index]
     end
 
-    coeffs[index] = (t.f)(t, index)
+    value = (t.f)(t, index)
 
-    return coeffs[index]
+    # if value != 0
+    #     coeffs[index] = value
+    # end
+    #
+    # return value
+
+    coeffs[index] = value
+    return value
 
 end
 
-function getindex(t::Taylor{N,T,F}, index...) where {N,T,F}
+function getindex(t::Taylor{N,T}, index...) where {N,T}
     getindex(t, SVector(index))
 end
 
@@ -223,8 +232,10 @@ end
 
 function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
 
+    print(io, "(")
+
     if degree(f) == 0
-        print(io, f[zero(SVector{N,Int})])
+        print(io, f[zero(SVector{N,Int})], ")")
         return
     end
 
@@ -245,7 +256,6 @@ function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
         end
 
 
-
         for i in 1:N
 
             if t[i] == 1
@@ -257,6 +267,8 @@ function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
 
         print(io, " + ")
     end
+
+    print(io, ")")
 end
 
 
@@ -272,6 +284,10 @@ end
 function constant(N, T)
     return Taylor(N, T, (t,i)->(i==zero(SVector{N,T}) ? 1 : 0), 0)
 end
+
+Base.zero(t::Taylor{N,T}) where {N,T} = Taylor(N, T, (t,i)->T(0), 0)
+Base.zero(::Type{Taylor{N,T}}) where {N,T} = Taylor(N, T, (t,i)->T(0), 0)
+
 
 function variables(N, T)
     vars = [variable(N, T, i) for i in 1:N]
