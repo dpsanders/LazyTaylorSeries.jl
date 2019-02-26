@@ -6,8 +6,14 @@
 #     coeffs::Vector{T}
 # end
 
-struct LazyTaylor1{T,memoize}
-    f::Function
+"""
+Coeffs of type T.
+
+f is a function that calculates the coefficient t[i].
+It takes the pair (t, i), where t is the Taylor model itself.
+"""
+struct LazyTaylor1{T,F,memoize}
+    f::F
     coeffs::Dict{Int,T}
 end
 
@@ -26,14 +32,15 @@ import Base: ^
 #     return t
 # end
 
-function Base.show(io::IO, t::LazyTaylor1{T,Val{true}}) where {T}
-    for (k, v) in t.coeffs
+function Base.show(io::IO, t::LazyTaylor1{T,F,Val{true}}) where {T,F}
+    for k in sort(collect(keys(t.coeffs)))
+        v = t.coeffs[k]
         if k == 0
-            print(io, "$v + ")
+            print(io, "($v) + ")
         elseif k == 1
-            print(io, "$v t + ")
+            print(io, "($v) t + ")
         else
-            print(io, "$v t^$k + ")
+            print(io, "($v) t^$k + ")
         end
     end
 end
@@ -42,7 +49,7 @@ end
 
 
 function LazyTaylor1(T, f, memoize)
-    t = LazyTaylor1{T,Val{memoize}}(f, Dict{Int,T}())
+    t = LazyTaylor1{T,typeof(f),Val{memoize}}(f, Dict{Int,T}())
     dummy = t[0]  # compile getindex by calculating first coefficient
     return t
 end
@@ -50,11 +57,13 @@ end
 LazyTaylor1{T}(f, memoize) where {T} = LazyTaylor1(T, f, memoize)
 LazyTaylor1{T}(f) where {T} = LazyTaylor1{T}(f, true)
 
-# this version of getindex is for non-memoized
-Base.getindex(t::LazyTaylor1{T,Val{false}}, i::Int) where {T} = (t.f)(t, i)
+Base.zero(::Type{LazyTaylor1{T,F,Val{true}}}) where {T,F} = LazyTaylor1{T}((t, i) -> zero(T))
 
-# Memoized; use NaN to indicate value not yet calculated
-function Base.getindex(t::LazyTaylor1{T,Val{true}}, i::Int) where {T}
+# this version of getindex is for non-memoized
+Base.getindex(t::LazyTaylor1{T,F,Val{false}}, i::Int) where {T,F} = (t.f)(t, i)
+
+# memoize
+function Base.getindex(t::LazyTaylor1{T,F,Val{true}}, i::Int) where {T,F}
     coeffs = t.coeffs
 
     if !haskey(coeffs, i)
@@ -74,8 +83,6 @@ constant(c) = LazyTaylor1( (t, i) -> (i == 0) ? c : zero(c), false )
 
 # these are memoized, but should look at performance without memoizing perhaps
 
-# use promotion!
-
 +(f::LazyTaylor1{T}, g::LazyTaylor1{T}) where {T} = LazyTaylor1{T}( (t, i) -> f[i] + g[i] )
 -(f::LazyTaylor1{T}, g::LazyTaylor1{T}) where {T} = LazyTaylor1{T}( (t, i) -> f[i] - g[i] )
 
@@ -84,12 +91,17 @@ constant(c) = LazyTaylor1( (t, i) -> (i == 0) ? c : zero(c), false )
 -(a::Real, f::LazyTaylor1{T}) where {T} = LazyTaylor1{T}( (t, i) -> (i == 0) ? a-f[0] : -f[i] )
 +(a::Real, f::LazyTaylor1{T}) where {T} = LazyTaylor1{T}( (t, i) -> (i == 0) ? a+f[0] : +f[i] )
 
+/(f::LazyTaylor1{T}, a::Real) where {T} = LazyTaylor1{T}( (t, i) -> f[i] / a )
+
+*(f::LazyTaylor1{T}, a::Real) where {T} = LazyTaylor1{T}( (t, i) -> f[i] * a )
+*(a::Real, f::LazyTaylor1{T}) where {T} = LazyTaylor1{T}( (t, i) -> a*f[i] )
+
+
 
 # formulas from Warwick Tucker, *Validated Numerics*
 
-*(f::LazyTaylor1{T}, g::LazyTaylor1{T}) where {T} = LazyTaylor1( (t, k) -> sum(f[i] * g[k-i] for i in 0:k) )
+*(f::LazyTaylor1{T}, g::LazyTaylor1{T}) where {T} = LazyTaylor1{T}( (t, k) -> sum(f[i] * g[k-i] for i in 0:k) )
 
-*(a::Real, f::LazyTaylor1{T}) where {T} = LazyTaylor1( (t, i) -> a*f[i] )
 
 # self is a reference to the object exp(g), that is used recursively
 function exp(g::LazyTaylor1{T}) where {T}
@@ -106,8 +118,8 @@ end
 """
 Evaluate using Horner rule
 """
-function (f::LazyTaylor1)(x)
-    total = zero(x)
+function (f::LazyTaylor1{T})(x) where {T}
+    total = zero(T)
 
     for (k, v) in f.coeffs
         total += v * x^k

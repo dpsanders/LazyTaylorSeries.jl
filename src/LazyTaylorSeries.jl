@@ -9,12 +9,12 @@ export variable, variables, constant, degree, evaluate!
 
 
 import Base:
-    +, -, *,
+    +, -, *, /,
     exp,
     getindex
 
 
-include("LazyTaylor1.jl")
+include("taylor1.jl")
 include("taylorN.jl")
 
 
