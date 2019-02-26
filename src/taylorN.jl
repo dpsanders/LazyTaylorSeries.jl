@@ -5,7 +5,7 @@ const CoeffDict{N,T} = Dict{ SVector{N,Int}, T }
 """Lazy Taylor series with N variables and coefficients of type T
 `degree` is the max degree of monomials allowed.
 If `degree == -1` then the Tayor series is potentially infinite."""
-immutable Taylor{N,T,F}
+struct Taylor{N,T,F}
     f::F
     coeffs::CoeffDict{N,T}
     degree::Int   # maximum order of monomial
@@ -14,12 +14,15 @@ end
 
 function Taylor(N, T, f::F, degree=-1) where {F}
     t = Taylor{N, T, F}(f, CoeffDict{N,T}(), degree)
-    dummy = t[SVector(ntuple(_->0, Val{N}))]  # compile getindex by calculating first coefficient
+    dummy = t[SVector(ntuple(_->0, Val(N)))]  # compile getindex by calculating first coefficient
     return t
 end
 
 degree(x::SVector) = sum(x)
 degree(f::Taylor) = f.degree
+
+import Base: ^
+^(t::Taylor{N,T,F}, n::Integer) where {N,T,F} = Base.power_by_squaring(t, n)
 
 function getindex(t::Taylor{N,T,F}, index::SVector) where {N,T,F}
 
@@ -205,11 +208,11 @@ end
 #
 # end
 
-const variable_names = ["x", "y", "z"]
+const variable_names = ["x", "y", "z", "w"]
 
 
 
-function evaluate(f::Taylor{N,T}) where {N,T}
+function evaluate!(f::Taylor{N,T}) where {N,T}
     tuples = generate_tuples(N, degree(f))
 
     for t in tuples
@@ -226,7 +229,7 @@ function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
     end
 
     # todo: order by degree
-    for t in sort(collect(keys(f.coeffs)), lt=lexless)
+    for t in sort(collect(keys(f.coeffs)), lt=isless)
         value = f[t]
 
         if value == 0
@@ -252,9 +255,7 @@ function Base.show(io::IO, f::Taylor{N,T}) where {N, T}
             end
         end
 
-        print("+")
-
-
+        print(io, " + ")
     end
 end
 
@@ -264,7 +265,7 @@ end
 export x, y, z, o
 
 function variable(N, T, i)
-    vec = SVector(ntuple(j->(j==i ? 1 : 0), Val{N}))
+    vec = SVector(ntuple(j->(j==i ? 1 : 0), N))
     return Taylor(N, T, (t,index)->(index==vec ? 1 : 0), 1)
 end
 
@@ -273,7 +274,13 @@ function constant(N, T)
 end
 
 function variables(N, T)
-    return (constant(N,T), [variable(N,T,i) for i in 1:N]...)
+    vars = [variable(N, T, i) for i in 1:N]
+
+    for var in vars
+        evaluate!(var)
+    end
+
+    return (constant(N,T), vars ...)
 end
 
 

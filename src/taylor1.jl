@@ -1,15 +1,28 @@
 
-immutable Taylor1{T,F,memoize}
+
+
+struct Taylor1{T,F,memoize}
     f::F
     coeffs::Vector{T}
 end
+
+Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
+
+import Base: ^
+^(t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
 
 # the function f must take *two* variables if it is memoized;
 # the first is used as an explicit reference to the current object when necessary
 # In principle this is independent of whether it is memoized
 
-function Taylor1{F}(f::F, memoize)
+function Taylor1(f::F, memoize) where F
     t = Taylor1{Float64,F,Val{memoize}}(f, Float64[])
+    dummy = t[0]  # compile getindex by calculating first coefficient
+    return t
+end
+
+function Taylor1(T, f::F, memoize) where F
+    t = Taylor1{T,F,Val{memoize}}(f, Float64[])
     dummy = t[0]  # compile getindex by calculating first coefficient
     return t
 end
@@ -17,10 +30,10 @@ end
 Taylor1(f::Function) = Taylor1(f, true)  # memoize by default
 
 # this version of getindex is for non-memoized
-getindex{T,F}(t::Taylor1{T,F,Val{false}}, i::Int) = (t.f)(i)
+getindex(t::Taylor1{T,F,Val{false}}, i::Int) where {T, F} = (t.f)(i)
 
 # Memoized; use NaN to indicate value not yet calculated
-function getindex{T,F}(t::Taylor1{T,F,Val{true}}, i::Int)
+function getindex(t::Taylor1{T,F,Val{true}}, i::Int) where {T, F}
     j = i + 1
     coeffs = t.coeffs
 
@@ -50,13 +63,23 @@ constant(c::Real) = constant(Float64(c))
 
 
 # these are memoized, but should look at performance without memoizing perhaps
+
+# use promotion!
+
 +(f::Taylor1, g::Taylor1) = Taylor1( (t, i) -> f[i] + g[i], true )
 -(f::Taylor1, g::Taylor1) = Taylor1( (t, i) -> f[i] - g[i], true )
+
+-(f::Taylor1) = Taylor1( (t, i) -> -f[i], true )
+
+-(a::Real, f::Taylor1) = Taylor1( (t, i) -> (i == 0) ? a-f[0] : -f[i], true )
++(a::Real, f::Taylor1) = Taylor1( (t, i) -> (i == 0) ? a+f[0] : +f[i], true )
 
 
 # formulas from Warwick Tucker, *Validated Numerics*
 
 *(f::Taylor1, g::Taylor1) = Taylor1( (t, k) -> sum(f[i] * g[k-i] for i in 0:k), true)
+
+*(a::Real, f::Taylor1) = Taylor1( (t, i) -> a*f[i], true)
 
 # self is a reference to the object exp(g), that is used recursively
 function exp(g::Taylor1)
@@ -68,4 +91,17 @@ function exp(g::Taylor1)
 
     return Taylor1(f)
 
+end
+
+"""
+Evaluate using Horner rule
+"""
+function (f::Taylor1)(x)
+    total = f.coeffs[end]
+
+    for i in length(f.coeffs)-1 : -1 : 1
+        total = x * total + f.coeffs[i]
+    end
+
+    return total
 end
