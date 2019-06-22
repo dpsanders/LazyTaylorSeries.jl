@@ -1,15 +1,43 @@
-
-
-
 struct Taylor1{T,F,memoize}
     f::F
     coeffs::Vector{T}
 end
 
-Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
+# modified from Base:
+function power_by_squaring(x, p::Integer)
+    if p == 1
+        return copy(x)
+    elseif p == 0
+        return one(x)
+    elseif p == 2
+        return x*x
+    elseif p < 0
+        isone(x) && return copy(x)
+        isone(-x) && return iseven(p) ? one(x) : copy(x)
+        throw_domerr_powbysq(x, p)
+    end
+    t = trailing_zeros(p) + 1
+    p >>= t
+    while (t -= 1) > 0
+        x *= x
+    end
+    y = x
+    while p > 0
+        t = trailing_zeros(p) + 1
+        p >>= t
+        while (t -= 1) >= 0
+            x *= x
+        end
+        y *= x
+    end
+    return y
+end
+
+
+Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = t^n
 
 import Base: ^
-^(t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
+^(t::Taylor1, n::Integer) = power_by_squaring(t, n)
 
 # the function f must take *two* variables if it is memoized;
 # the first is used as an explicit reference to the current object when necessary
@@ -82,14 +110,14 @@ constant(c::Real) = constant(Float64(c))
 *(a::Real, f::Taylor1) = Taylor1( (t, i) -> a*f[i], true)
 
 # self is a reference to the object exp(g), that is used recursively
-function exp(g::Taylor1)
+function exp(g::Taylor1{T,F,memoize}) where {T,F,memoize}
     function f(self, k)
         k == 0 && return exp(g[0])
         # dummy = g[k]  # preallocate g
         return sum(i * g[i] * self[k-i] for i in 1:k) / k
     end
 
-    return Taylor1(f)
+    return Taylor1(T, f, true)
 
 end
 
