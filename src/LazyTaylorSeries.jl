@@ -13,7 +13,7 @@ import Base:
     exp,
     getindex
 
-include("powers.jl")
+
 include("taylor1.jl")
 include("taylorN.jl")
 
