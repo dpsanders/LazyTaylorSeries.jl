@@ -10,6 +10,11 @@ struct Taylor1{T,F}
     coeffs::Vector{T}
 end
 
+# function Taylor1(f::F) where F
+#     t = Taylor1{Float64,F}(f, Float64[])
+#     dummy = t[0]  # compile getindex by calculating first coefficient
+#     return t
+# end
 
 # function Taylor1(f::F) where F
 #     t = Taylor1{Float64,F}(f, Float64[])
