@@ -1,35 +1,32 @@
-struct Taylor1{T,F,memoize}
+"""Lazy Taylor series in 1 variable.
+`coeffs` are the stored (memoized) coefficients.
+`f` is the function that calculates coefficients.
+
+Note: `f` must take *two* variables;
+the first is used as an explicit reference to the current object when necessary, e.g. for `exp`.
+"""
+struct Taylor1{T,F}
     f::F
     coeffs::Vector{T}
 end
 
+# function Taylor1(f::F) where F
+#     t = Taylor1{Float64,F}(f, Float64[])
+#     dummy = t[0]  # compile getindex by calculating first coefficient
+#     return t
+# end
 
-Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = t^n
-
-import Base: ^
-^(t::Taylor1, n::Integer) = power_by_squaring(t, n)
-# uses custom version of power_by_squaring in powers.jl file
-
-# the function f must take *two* variables if it is memoized;
-# the first is used as an explicit reference to the current object when necessary
-# In principle this is independent of whether it is memoized
-
-
-Taylor1(f::F, memoize) where {F} = Taylor1(Float64, f, memoize)
-
-function Taylor1(T, f::F, memoize) where {F}
-    t = Taylor1{T,F,Val{memoize}}(f, T[])
+function Taylor1(T, f::F) where {F}
+    t = Taylor1{T,F}(f, T[])
     dummy = t[0]  # compile getindex by calculating first coefficient
     return t
 end
 
-Taylor1(f::Function) = Taylor1(f, true)  # memoize by default
+Taylor1(T, f::Function) = Taylor1(T, f)
 
-# this version of getindex is for non-memoized
-getindex(t::Taylor1{T,F,Val{false}}, i::Int) where {T, F} = (t.f)(i)
 
 # Memoized; use NaN to indicate value not yet calculated
-function getindex(t::Taylor1{T,F,Val{true}}, i::Int) where {T, F}
+function getindex(t::Taylor1{T,F}, i::Int) where {T, F}
     j = i + 1
     coeffs = t.coeffs
 
@@ -63,22 +60,22 @@ constant(T, c::Real) = Taylor1(T, i::Int -> (i == 0) ? c : 0.0, false )
 
 # use promotion!
 
-+(f::Taylor1{T}, g::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> f[i] + g[i], true )
--(f::Taylor1{T}, g::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> f[i] - g[i], true )
++(f::Taylor1{T}, g::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> f[i] + g[i])
+-(f::Taylor1{T}, g::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> f[i] - g[i])
 
--(f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> -f[i], true )
+-(f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> -f[i])
 
--(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> (i == 0) ? a-f[0] : -f[i], true )
-+(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> (i == 0) ? a+f[0] : +f[i], true )
+-(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> (i == 0) ? a-f[0] : -f[i])
++(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> (i == 0) ? a+f[0] : +f[i])
 
 +(f::Taylor1, a::Real) = a + f
 -(f::Taylor1, a::Real) = f + (-a)
 
 # formulas from Warwick Tucker, *Validated Numerics*
 
-*(f::Taylor1{T}, g::Taylor1{T}) where {T} = Taylor1(T, (t, k) -> sum(f[i] * g[k-i] for i in 0:k), true)
+*(f::Taylor1{T}, g::Taylor1{T}) where {T} = Taylor1(T, (t, k) -> sum(f[i] * g[k-i] for i in 0:k))
 
-*(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> a*f[i], true)
+*(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> a*f[i])
 *(f::Taylor1, a::Real) = a * f
 
 # self is a reference to the object exp(g), that is used recursively
@@ -89,7 +86,7 @@ function exp(g::Taylor1{T}) where {T}
         return sum(i * g[i] * self[k-i] for i in 1:k) / k
     end
 
-    return Taylor1(T, f, true)
+    return Taylor1(T, f)
 
 end
 
@@ -107,4 +104,7 @@ function (f::Taylor1)(x)
 end
 
 
-## tt = Taylor1(Interval{Float64}, i -> (i == 1) ? (1..1) : (0..0), false)
+Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
+
+import Base: ^
+^(t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
