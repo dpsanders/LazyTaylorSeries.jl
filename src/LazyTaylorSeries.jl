@@ -17,5 +17,7 @@ include("powers.jl")
 include("taylor1.jl")
 include("taylorN.jl")
 
+variable(T) = Taylor1(T, (t, i) -> (i == 1) ? one(T) : zero(T))
+
 
 end

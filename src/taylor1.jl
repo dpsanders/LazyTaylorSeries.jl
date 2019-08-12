@@ -10,6 +10,7 @@ struct Taylor1{T,F}
     coeffs::Vector{T}
 end
 
+
 # function Taylor1(f::F) where F
 #     t = Taylor1{Float64,F}(f, Float64[])
 #     dummy = t[0]  # compile getindex by calculating first coefficient
@@ -17,12 +18,12 @@ end
 # end
 
 function Taylor1(T, f::F) where {F}
-    t = Taylor1{T,F}(f, T[])
+    t = Taylor1(f, T[])
     dummy = t[0]  # compile getindex by calculating first coefficient
     return t
 end
 
-Taylor1(T, f::Function) = Taylor1(T, f)
+# Taylor1(T, f::Function) = Taylor1(T, f)
 
 
 # Memoized; use NaN to indicate value not yet calculated
@@ -104,7 +105,7 @@ function (f::Taylor1)(x)
 end
 
 
-Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
+Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = t^n
 
 import Base: ^
-^(t::Taylor1, n::Integer) = Base.power_by_squaring(t, n)
+^(t::Taylor1, n::Integer) = power_by_squaring(t, n)  # uses modified version in powers.jl
