@@ -69,21 +69,21 @@ Base.haskey(v::Vector, i::Int) = i in keys(v)   # type piracy
 # end
 
 
-function Base.setindex!(t::Taylor1{T,F,Vector{T}}, val::T, i::Int) where {T,F}
+function Base.setindex!(t::Taylor1{T,F,Vector{T}}, val, i::Int) where {T,F}
     j = i + 1
     coeffs = t.coeffs
 
     current_length = length(coeffs)
     resize!(coeffs, j)
-    coeffs[current_length+1:end] .= NaN
+    coeffs[(current_length+1):(end-1)] .= NaN
     coeffs[end] = val
 
     return coeffs[end]
 end
 
-function Base.setindex!(t::Taylor1{T,F,Dict{Int,T}}, val::T, i::Int) where {T,F}
-    t.coeffs[i] = val
-    return t.coeffs[i]
+function Base.setindex!(t::Taylor1{T,F,Dict{Int,T}}, val, i::Int) where {T,F}
+    t.coeffs[i+1] = val
+    return t.coeffs[i+1]
 end
 
 
