@@ -3,8 +3,8 @@ using Test
 
 
 @testset "Basic usage" begin
-    t = Taylor1(Float64, (t, i) -> (i == 1))  # define variable
-    t2 = variable(Float64)
+    t = Taylor1((t, i) -> (i == 1), Float64[])  # define variable
+    t2 = Taylor1((t, i) -> (i == 1), Dict{Int,Float64}())  # define variable
 
     @test t[0] == 0 == t2[0]
     @test t[1] == 1 == t2[1]
