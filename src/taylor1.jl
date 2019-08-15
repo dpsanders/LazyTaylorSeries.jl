@@ -74,16 +74,16 @@ function Base.setindex!(t::Taylor1{T,F,Vector{T}}, val, i::Int) where {T,F}
     coeffs = t.coeffs
 
     current_length = length(coeffs)
-    resize!(coeffs, j)
-    coeffs[(current_length+1):(end-1)] .= NaN
-    coeffs[end] = val
+    resize!(coeffs, j)  # fills with junk
+    # coeffs[(current_length+1):(end-1)] .= NaN
+    @inbounds coeffs[end] = val
 
-    return coeffs[end]
+    @inbounds return coeffs[end]
 end
 
 function Base.setindex!(t::Taylor1{T,F,Dict{Int,T}}, val, i::Int) where {T,F}
-    t.coeffs[i+1] = val
-    return t.coeffs[i+1]
+    @inbounds t.coeffs[i+1] = val
+    @inbounds return t.coeffs[i+1]
 end
 
 
@@ -92,10 +92,10 @@ function Base.getindex(t::Taylor1{T,F,C}, i::Int) where {T, F, C}
     coeffs = t.coeffs
 
     if !haskey(coeffs, j)
-        t[i] = (t.f)(t, i)
+        @inbounds t[i] = (t.f)(t, i)
     end
 
-    return coeffs[j]
+    return @inbounds coeffs[j]
 end
 
 
@@ -115,21 +115,21 @@ constant(T, c::Real) = Taylor1(T, i::Int -> (i == 0) ? c : 0.0, false )
 import Base: +, -, *
 
 +(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> f[i] + g[i], init(C))
--(f::Taylor1{T}, g::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> f[i] - g[i])
+-(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> f[i] - g[i], init(C))
 
--(f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> -f[i])
+-(f::Taylor1{T,F,C}) where {T,F,C} = Taylor1((t, i) -> -f[i], init(C))
 
--(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> (i == 0) ? a-f[0] : -f[i])
-+(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> (i == 0) ? a+f[0] : +f[i])
++(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> (i == 0) ? a+f[0] : f[i], init(C))
+-(a::Real, f::Taylor1) = a + (-f)
 
 +(f::Taylor1, a::Real) = a + f
--(f::Taylor1, a::Real) = f + (-a)
+-(f::Taylor1, a::Real) = (-a) + f
 
 # formulas from Warwick Tucker, *Validated Numerics*
 
 *(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> sum(f[k] * g[i-k] for k in 0:i), init(C))
 
-*(a::Real, f::Taylor1{T}) where {T} = Taylor1(T, (t, i) -> a*f[i])
+*(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> a*f[i], init(C))
 *(f::Taylor1, a::Real) = a * f
 
 # self is a reference to the object exp(g), that is used recursively
@@ -137,7 +137,7 @@ function exp(g::Taylor1{T}) where {T}
     function f(self, k)
         k == 0 && return exp(g[0])
         # dummy = g[k]  # preallocate g
-        return sum(i * g[i] * self[k-i] for i in 1:k) / k
+        @inbounds return sum(i * g[i] * self[k-i] for i in 1:k) / k
     end
 
     return Taylor1(T, f)
@@ -151,7 +151,7 @@ function (f::Taylor1)(x)
     total = f.coeffs[end]
 
     for i in length(f.coeffs)-1 : -1 : 1
-        total = x * total + f.coeffs[i]
+        @inbounds total = x * total + f.coeffs[i]
     end
 
     return total
