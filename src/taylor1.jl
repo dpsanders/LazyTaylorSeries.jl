@@ -19,12 +19,17 @@ coeff_type(::Type{Dict{Int,T}}) where {T} = T
 struct Taylor1{T,F,C<:ContainerType}
     f::F
     coeffs::C  # C is the type of the container
+    parents:: Set{Taylor1{T,G,C} where {G}}  # objects this one depends on
+    children::Set{Taylor1{T,G,C} where {G}}  # other Taylor1 objects that use this one
 end
 
 init(::Type{Vector{T}}) where {T} = T[]
 init(::Type{Dict{Int,T}}) where {T} = Dict{Int,T}()
 
-Taylor1(f::F, coeffs::C) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs)
+Taylor1(f::F, coeffs::C) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, Set(), Set())
+
+Taylor1(f::F, coeffs::C, parents) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, parents, Set())
+
 
 Base.haskey(v::Vector, i::Int) = i in keys(v)   # type piracy
 
@@ -114,12 +119,23 @@ constant(T, c::Real) = Taylor1(T, i::Int -> (i == 0) ? c : 0.0, false )
 
 import Base: +, -, *
 
-+(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> f[i] + g[i], init(C))
--(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> f[i] - g[i], init(C))
+function make_taylor(f, C, parents)
+    obj = Taylor1( f, init(C), Set(parents) )
 
--(f::Taylor1{T,F,C}) where {T,F,C} = Taylor1((t, i) -> -f[i], init(C))
+    for p in parents
+        push!(p.children, obj)
+    end
 
-+(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> (i == 0) ? a+f[0] : f[i], init(C))
+    return obj
+end
+
+
++(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = make_taylor( (t, i) -> f[i] + g[i], C, [f, g] )
+-(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = make_taylor( (t, i) -> f[i] - g[i], C, [f, g] )
+
+-(f::Taylor1{T,F,C}) where {T,F,C} = Taylor1((t, i) -> -f[i], init(C), Set(f))
+
++(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> (i == 0) ? a+f[0] : f[i], init(C), Set((f, )))
 -(a::Real, f::Taylor1) = a + (-f)
 
 +(f::Taylor1, a::Real) = a + f
@@ -127,22 +143,22 @@ import Base: +, -, *
 
 # formulas from Warwick Tucker, *Validated Numerics*
 
-*(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> sum(f[k] * g[i-k] for k in 0:i), init(C))
+*(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> sum(f[k] * g[i-k] for k in 0:i), init(C), Set((f, g)))
 
-*(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> a*f[i], init(C))
+*(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> a*f[i], init(C), Set((f, )))
 *(f::Taylor1, a::Real) = a * f
 
 # self is a reference to the object exp(g), that is used recursively
-function exp(g::Taylor1{T}) where {T}
-    function f(self, k)
-        k == 0 && return exp(g[0])
-        # dummy = g[k]  # preallocate g
-        @inbounds return sum(i * g[i] * self[k-i] for i in 1:k) / k
-    end
-
-    return Taylor1(T, f)
-
-end
+# function exp(g::Taylor1{T}) where {T}
+#     function f(self, k)
+#         k == 0 && return exp(g[0])
+#         # dummy = g[k]  # preallocate g
+#         @inbounds return sum(i * g[i] * self[k-i] for i in 1:k) / k
+#     end
+#
+#     return Taylor1(T, f)
+#
+# end
 
 """
 Evaluate using Horner rule
@@ -162,3 +178,15 @@ Base.literal_pow(::typeof(^), t::Taylor1, n::Integer) = t^n
 
 import Base: ^
 ^(t::Taylor1, n::Integer) = power_by_squaring(t, n)  # uses modified version in powers.jl
+
+"""
+Reset a Taylor series by emptying its own coefficients and the
+coefficients of all other Taylor objects that depend on it.
+"""
+function reset!(t::Taylor1)
+    empty!(t.coeffs)
+
+    for c in t.children
+        empty!(c.coeffs)
+    end
+endr
