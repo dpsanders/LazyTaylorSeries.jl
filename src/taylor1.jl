@@ -119,11 +119,20 @@ constant(T, c::Real) = Taylor1(T, i::Int -> (i == 0) ? c : 0.0, false )
 
 import Base: +, -, *
 
+"Add a child to a parent and its parents recursively"
+function add_child!(parent, child)
+    push!(parent.children, child)
+
+    for p in parent.parents
+        add_child!(p, child)
+    end
+end
+
 function make_taylor(f, C, parents)
     obj = Taylor1( f, init(C), Set(parents) )
 
     for p in parents
-        push!(p.children, obj)
+        add_child!(p, obj)
     end
 
     return obj
@@ -133,9 +142,9 @@ end
 +(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = make_taylor( (t, i) -> f[i] + g[i], C, [f, g] )
 -(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = make_taylor( (t, i) -> f[i] - g[i], C, [f, g] )
 
--(f::Taylor1{T,F,C}) where {T,F,C} = Taylor1((t, i) -> -f[i], init(C), Set(f))
+-(f::Taylor1{T,F,C}) where {T,F,C} = make_taylor( (t, i) -> -f[i], C, [f] )
 
-+(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> (i == 0) ? a+f[0] : f[i], init(C), Set((f, )))
++(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = make_taylor( (t, i) -> (i == 0) ? a+f[0] : f[i], C, [f] )
 -(a::Real, f::Taylor1) = a + (-f)
 
 +(f::Taylor1, a::Real) = a + f
@@ -143,9 +152,9 @@ end
 
 # formulas from Warwick Tucker, *Validated Numerics*
 
-*(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = Taylor1( (t, i) -> sum(f[k] * g[i-k] for k in 0:i), init(C), Set((f, g)))
+*(f::Taylor1{T,F1,C}, g::Taylor1{T,F2,C}) where {T,F1,F2,C} = make_taylor( (t, i) -> sum(f[k] * g[i-k] for k in 0:i), C, [f, g] )
 
-*(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = Taylor1( (t, i) -> a*f[i], init(C), Set((f, )))
+*(a::Real, f::Taylor1{T,F,C}) where {T,F,C} = make_taylor( (t, i) -> a*f[i], C, [f] )
 *(f::Taylor1, a::Real) = a * f
 
 # self is a reference to the object exp(g), that is used recursively
@@ -189,4 +198,4 @@ function reset!(t::Taylor1)
     for c in t.children
         empty!(c.coeffs)
     end
-endr
+end
