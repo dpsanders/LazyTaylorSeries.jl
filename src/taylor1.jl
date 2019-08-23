@@ -5,6 +5,9 @@
 
 Note: `f` must take *two* variables;
 the first is used as an explicit reference to the current object when necessary, e.g. for `exp`.
+
+Each `Taylor1` object keeps a list (`Set`) of other `Taylor1` objects
+that depend on it, in `children`, and those on which it depends, in `parents`.
 """
 
 using StaticArrays
