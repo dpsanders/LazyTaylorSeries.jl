@@ -34,6 +34,30 @@ init(::Type{Dict{Int,T}}) where {T} = Dict{Int,T}()
 init(::Type{MVector{N,T}}) where {N,T} = zero(MVector{N,T})
 
 
+function Base.show(io::IO, t::Taylor1)
+    println(io, "LazyTaylor1 of degree $(t.max_degree):")
+
+    if t.max_degree >= 0
+        print(io, t[0], " + ")
+    end
+
+    for n in 1:t.max_degree
+        if t[n] != 0
+            if t[n] != 1
+                print(io, t[n])
+            end
+
+            if n > 1
+                print("t^$n + ")
+            else
+                print("t + ")
+            end
+        end
+    end
+
+    # print(io, "  - coeffs: $(t.coeffs[1:t.max_degree+1])")
+end
+
 
 Taylor1(f::F, coeffs::C) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, -1, Set(), Set())
 
@@ -222,9 +246,11 @@ Reset a Taylor series by emptying its own coefficients and the
 coefficients of all other Taylor objects that depend on it.
 """
 function reset!(t::Taylor1)
-    empty!(t.coeffs)
+    #empty!(t.coeffs)
+    t.max_degree = -1
 
     for c in t.children
-        empty!(c.coeffs)
+        #empty!(c.coeffs)
+        c.max_degree = -1
     end
 end
