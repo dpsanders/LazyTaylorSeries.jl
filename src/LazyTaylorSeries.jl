@@ -5,7 +5,7 @@ using StaticArrays
 
 export Taylor1, Taylor, tt
 export variable, variables, constant, degree, evaluate!
-
+export reset!
 
 
 import Base:
