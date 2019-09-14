@@ -18,6 +18,8 @@ const ContainerType = Union{Vector{T}, Dict{Int,T}, MVector{N,T}} where {T,N}
 # similar to eltype:
 coeff_type(::Type{Vector{T}}) where {T} = T
 coeff_type(::Type{Dict{Int,T}}) where {T} = T
+coeff_type(::Type{MVector{N,T}}) where {N,T} = T
+
 
 struct Taylor1{T,F,C<:ContainerType}
     f::F
@@ -28,13 +30,15 @@ end
 
 init(::Type{Vector{T}}) where {T} = T[]
 init(::Type{Dict{Int,T}}) where {T} = Dict{Int,T}()
+init(::Type{MVector{N,T}}) where {N,T} = zero(MVector{N,T})
+
 
 Taylor1(f::F, coeffs::C) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, Set(), Set())
 
 Taylor1(f::F, coeffs::C, parents) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, parents, Set())
 
 
-Base.haskey(v::Vector, i::Int) = i in keys(v)   # type piracy
+Base.haskey(v::AbstractVector, i::Int) = i in keys(v)   # type piracy
 
 # Taylor1(T, f::F, C) where {F} = Taylor1{T,F,C}(f, init(C))
 
@@ -77,21 +81,24 @@ Base.haskey(v::Vector, i::Int) = i in keys(v)   # type piracy
 # end
 
 
-function Base.setindex!(t::Taylor1{T,F,Vector{T}}, val, i::Int) where {T,F}
+function Base.setindex!(t::Taylor1{T,F,<:AbstractVector{T}}, val, i::Int) where {T,F}
     j = i + 1
     coeffs = t.coeffs
 
     current_length = length(coeffs)
-    resize!(coeffs, j)  # fills with junk
-    # coeffs[(current_length+1):(end-1)] .= NaN
-    @inbounds coeffs[end] = val
 
-    @inbounds return coeffs[end]
+    if j > current_length
+        resize!(coeffs, j)  # fills with junk
+    end
+    # coeffs[(current_length+1):(end-1)] .= NaN
+    @inbounds coeffs[j] = val
+    return val
 end
+
 
 function Base.setindex!(t::Taylor1{T,F,Dict{Int,T}}, val, i::Int) where {T,F}
     @inbounds t.coeffs[i+1] = val
-    @inbounds return t.coeffs[i+1]
+    @inbounds return val
 end
 
 
