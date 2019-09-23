@@ -21,9 +21,10 @@ coeff_type(::Type{Dict{Int,T}}) where {T} = T
 coeff_type(::Type{MVector{N,T}}) where {N,T} = T
 
 
-struct Taylor1{T,F,C<:ContainerType}
+mutable struct Taylor1{T,F,C<:ContainerType}
     f::F
     coeffs::C  # C is the type of the container
+    max_degree::Int
     parents:: Set{Taylor1{T,G,C} where {G}}  # objects this one depends on
     children::Set{Taylor1{T,G,C} where {G}}  # other Taylor1 objects that use this one
 end
@@ -33,9 +34,34 @@ init(::Type{Dict{Int,T}}) where {T} = Dict{Int,T}()
 init(::Type{MVector{N,T}}) where {N,T} = zero(MVector{N,T})
 
 
-Taylor1(f::F, coeffs::C) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, Set(), Set())
+function Base.show(io::IO, t::Taylor1)
+    println(io, "LazyTaylor1 of degree $(t.max_degree):")
 
-Taylor1(f::F, coeffs::C, parents) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, parents, Set())
+    if t.max_degree >= 0
+        print(io, t[0], " + ")
+    end
+
+    for n in 1:t.max_degree
+        if t[n] != 0
+            if t[n] != 1
+                print(io, t[n])
+            end
+
+            if n > 1
+                print("t^$n + ")
+            else
+                print("t + ")
+            end
+        end
+    end
+
+    # print(io, "  - coeffs: $(t.coeffs[1:t.max_degree+1])")
+end
+
+
+Taylor1(f::F, coeffs::C) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, -1, Set(), Set())
+
+Taylor1(f::F, coeffs::C, parents) where {F,C} = Taylor1{coeff_type(C),F,C}(f, coeffs, -1, parents, Set())
 
 
 Base.haskey(v::AbstractVector, i::Int) = i in keys(v)   # type piracy
@@ -82,35 +108,52 @@ Base.haskey(v::AbstractVector, i::Int) = i in keys(v)   # type piracy
 
 
 function Base.setindex!(t::Taylor1{T,F,<:AbstractVector{T}}, val, i::Int) where {T,F}
-    j = i + 1
+    # j = i + 1
     coeffs = t.coeffs
 
-    current_length = length(coeffs)
+    max_degree = t.max_degree
 
-    if j > current_length
-        resize!(coeffs, j)  # fills with junk
+    if i > max_degree
+        resize!(t.coeffs, i+1)
+        for k in max_degree+1:i
+            t[k]
+        end
+
+        t.max_degree = i
     end
     # coeffs[(current_length+1):(end-1)] .= NaN
-    @inbounds coeffs[j] = val
+    @inbounds t.coeffs[i+1] = val
     return val
 end
 
 
 function Base.setindex!(t::Taylor1{T,F,Dict{Int,T}}, val, i::Int) where {T,F}
     @inbounds t.coeffs[i+1] = val
-    @inbounds return val
+    t.max_degree = max(t.max_degree, i)
+    return val
 end
 
 
 function Base.getindex(t::Taylor1{T,F,C}, i::Int) where {T, F, C}
-    j = i + 1  # offset so that numbering is 0-based
+    #j = i + 1  # offset so that numbering is 0-based
     coeffs = t.coeffs
 
-    if !haskey(coeffs, j)
-        @inbounds t[i] = (t.f)(t, i)
+    max_degree = t.max_degree
+    if i > max_degree
+        resize!(t.coeffs, i+1)
+        for k in max_degree+1:i
+            @inbounds coeffs[k+1] = (t.f)(t, k)
+        end
+
+        @inbounds coeffs[i+1] = (t.f)(t, i)
+        t.max_degree = i
     end
 
-    return @inbounds coeffs[j]
+    # if !haskey(coeffs, j)
+    #     @inbounds t[i] = (t.f)(t, i)
+    # end
+
+    return @inbounds coeffs[i+1]
 end
 
 
@@ -203,9 +246,11 @@ Reset a Taylor series by emptying its own coefficients and the
 coefficients of all other Taylor objects that depend on it.
 """
 function reset!(t::Taylor1)
-    empty!(t.coeffs)
+    #empty!(t.coeffs)
+    t.max_degree = -1
 
     for c in t.children
-        empty!(c.coeffs)
+        #empty!(c.coeffs)
+        c.max_degree = -1
     end
 end
